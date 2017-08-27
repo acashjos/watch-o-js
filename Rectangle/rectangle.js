@@ -1,29 +1,21 @@
 //let utils = require('./utils')
 
-// class RectangleComponent extends React.Component{
-// 	constructor(template){
 
-// 		if(this.constructor.name === "Rectangle"){ //simple function component
-// 			fgdg
-// 		}
-// 	}
-
-// 	render() {
-// 		return <h1>Hello, {this.props.name}</h1>;
-// 	  }
-
-// }
 
 window.Rectangle = window.Rectangle || {}
 
 window.Rectangle.createComponent = function CreateComponent(template, proptypes, controller, lifecycleEvents) {
 	({ template, proptypes, controller, lifecycleEvents } = verifyParams(this, arguments))
 
-	let updateState = (state) => {
-		// do something
-	}
+	
 
-	function callInsideComponentConstructor(props,ctx) {
+	function initialize(props,ctx) {
+		let updateState = (state) => {
+			// do something
+			this.setState(state)
+			sealContext(context)
+		}
+
 		const context = utils.hasNativeFeature(Proxy)
 		? utils.generateProxyContext(updateState,props,ctx)
 		: utils.generatePOJOContext(props,ctx);
@@ -32,6 +24,22 @@ window.Rectangle.createComponent = function CreateComponent(template, proptypes,
 		sealContext(context)
 	}
 
+	return generateClass(initialize)
+}
+
+function generateClass (initialize) {
+
+	return class RectangleComponent extends React.Component{
+		constructor(props){
+			super(props);
+			initialize.bind(this)()
+		}
+	
+		render() {
+			return <h1>Hello, {this.props.name}</h1>;
+		  }
+	
+	}
 }
 
 function expandProptypes(proptypes) {
