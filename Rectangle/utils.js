@@ -18,26 +18,28 @@ function generateProxyContext(updateState,props,context) {
 		context: { value: context}
 	 })
 
-	return new Proxy(context, {
+	let proxyCtx;
+	proxyCtx = new Proxy(context, {
 		set(target, key, val) {
 			if (isFunction(val)) target[key] = new Proxy(val, {
 				apply(target, thisVal, params) {
 					let result = target.call(thisVal, ...params);
-					updateState(context);
+					updateState(proxyCtx);
 				}
 			})
 			else target[key] = val;
 		}
 	})
+	return proxyCtx;
 }
 
-function generatePOJOContext(props,context) {
+function generatePOJOContext(props,ctx) {
 
 	let context = Object.create({ 
 		_hasNoProxy: true
 	 },{
 		props: { value: props},
-		context: { value: context}
+		context: { value: ctx}
 	 })
 	return context;
 }

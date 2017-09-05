@@ -1,11 +1,15 @@
 //let utils = require('./utils')
+//let watchable = require('./watchable')
 
 
 
 window.Rectangle = window.Rectangle || {}
 
-window.Rectangle.createComponent = function CreateComponent(template, proptypes, controller, lifecycleEvents) {
-	({ template, proptypes, controller, lifecycleEvents } = verifyParams(this, arguments))
+window.Rectangle.createComponent = function CreateComponent(
+	template, proptypes, controller, lifecycleEvents) 
+{
+	({ template, proptypes, controller, lifecycleEvents } 
+		= verifyParams(this, arguments))
 
 	
 
@@ -80,7 +84,9 @@ function verifyParams(_this, args) {
 	}
 
 	if (!utils.isFunction(controller)) {
-		throw new TypeError("Rectangle.createComponent expects a controller `Function` as 2nd parameter ( 3rd parameter if proptypes are included ). Got " + (typeof controller))
+		throw new TypeError(
+			"Rectangle.createComponent expects a controller `Function` as 2nd parameter ( 3rd parameter if proptypes are included ). Got " 
+			+ (typeof controller))
 	}
 
 	proptypes = expandProptypes(proptypes);
