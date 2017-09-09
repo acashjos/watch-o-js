@@ -12,38 +12,40 @@ function hasNativeFeature(feature) {
 
 hasNativeFeature.featureMap = new WeakMap();
 
-function generateProxyContext(updateState,props,context) {
-	let context = Object.create({},{
-		props: { value: props},
-		context: { value: context}
-	 })
+// function generateProxyContext(updateState,props,context) {
+// 	let context = Object.create({},{
+// 		props: { value: props},
+// 		context: { value: context}
+// 	 })
 
-	let proxyCtx;
-	proxyCtx = new Proxy(context, {
-		set(target, key, val) {
-			if (isFunction(val)) target[key] = new Proxy(val, {
-				apply(target, thisVal, params) {
-					let result = target.call(thisVal, ...params);
-					updateState(proxyCtx);
-				}
-			})
-			else target[key] = val;
-		}
-	})
-	return proxyCtx;
-}
+// 	let proxyCtx;
+// 	proxyCtx = new Proxy(context, {
+// 		set(target, key, val) {
+// 			if (isFunction(val)) target[key] = new Proxy(val, {
+// 				apply(target, thisVal, params) {
+// 					let result = target.call(thisVal, ...params);
+// 					updateState(proxyCtx);
+// 				}
+// 			})
+// 			else target[key] = val;
+// 		}
+// 	})
+// 	return proxyCtx;
+// }
 
-function generatePOJOContext(props,ctx) {
+// function generatePOJOContext(props,ctx) {
 
-	let context = Object.create({ 
-		_hasNoProxy: true
-	 },{
-		props: { value: props},
-		context: { value: ctx}
-	 })
-	return context;
-}
+// 	let context = Object.create({ 
+// 		_hasNoProxy: true
+// 	 },{
+// 		props: { value: props},
+// 		context: { value: ctx}
+// 	 })
+// 	return context;
+// }
 
-let utils = {isFunction,hasNativeFeature,generateProxyContext,generatePOJOContext}
+let utils = {isFunction,hasNativeFeature,/* generateProxyContext,generatePOJOContext */}
 
-// module.exports = utils;
+try{
+	window.Rectangle.utils = utils
+}catch(e){ module.exports = utils;}

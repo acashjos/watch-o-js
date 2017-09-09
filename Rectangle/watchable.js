@@ -1,48 +1,61 @@
-//let utils = require('./utils')
+let utils = require('./utils')
 
 // CHILD-UPDATE-HANDLER  is the placeholder for a closure-global function 
 // which receives a nudge whenever a child watchable has changed.
 // This calls despatch thus forwarding the nudge to all parents holding a reference to this.
 
-window.Rectangle = window.Rectangle || {}
 
-window.Rectangle.watchable = function Watchable(object, optionalDefaultListener) {
+function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// optionalDefaultListener will be added as the first listener - TO.DO
-
+	if(isWatchable(object)) {
+		//if optionalDefaultListener, optionalListOfFieldsToListen are given,
+		// attach them on the watchable TO.DO
+		return object;
+	}
 	let reactiveObj;
 	let closureFields;
 
 	let blockDespatch = false;
+	let hasPendingDespatch = false;
 	let listeners = new Set(); // parents
-	let lastKnownKeySet = new Set(); // properties
+	let lastKnownKeys = new Set(); // properties
 	let watchableChildren = new Map();
 
-	let despatchChanges = function despatchChanges() {
+	let nudgeWatcher = function nudgeWatcher() {
+		if (blockDespatch) {
+			hasPendingDespatch = true;
+			return;
+		}
 		adaptStructChanges(reactiveObj, closureFields);
-		// listeners.forEach
+		let summary = []; // list of keys changed TO.DO
+		listeners.forEach( listener => listener(summary))
 	}
 
 	closureFields = {
+		object,
 		set blockDespatch(val) { blockDespatch = val },
 		get blockDespatch() { return blockDespatch; },
+		get hasPendingDespatch() { return hasPendingDespatch; },
 		listeners,
-		lastKnownKeySet,
+		lastKnownKeys,
 		watchableChildren,
-		despatchChanges,
+		nudgeWatcher,
 	}
 	reactiveObj = generateReactiveStub(closureFields)
 
 	for (var key in object) {
 		// if(object.hasOwnProperty(key)){
-		animateField(reactiveObj, key, object[key])
-		reference.add(key);
+		animateField(reactiveObj, key, object[key],closureFields)
+		lastKnownKeys.add(key);
 		// }
 	}
+
+	return reactiveObj;
 }
 
 function adaptStructChanges(currentObj, closureFields) {
 
-	let {lastKnownKeys, watchableChildren} = closureFields;
+	let { lastKnownKeys, watchableChildren } = closureFields;
 	let currentKeys = new Set();
 
 	for (let key in currentObj) {
@@ -69,35 +82,67 @@ function adaptStructChanges(currentObj, closureFields) {
 
 function animateField(parent, fieldName, value, closureFields) {
 
-	let descriptor = {}
+	let descriptor = {
+		enumerable: true,
+		configurable: true
+	}
+
+	if (Object.hasOwnProperty(parent, fieldName)) delete parent[fieldName]
+	closureFields.object[fieldName] = value;
+
 	if (utils.isFunction(value)) {
-		let boundFn = value.bind(parent);
-		descriptor.value = (...args) => {
-			if (closureFields.blockDespatch) return boundFn(...args);
-			closureFields.blockDespatch = true;
-			let result = boundFn(...args);
-			closureFields.blockDespatch = false;
-			closureFields.despatchChanges();
-			return result;
-		}
+		closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
+	}
+	else if( typeof value == "object") {
+ithokke work cheyandonnu nokkanam............
+		value = Watchable(value); // Watchable will return same object if the baseobject is already a watchable
+		let baseClass = value._attachListener(CHILD - UPDATE - HANDLER)
+		closureFields.watchableChildren.add(fieldName,value);
+		closureFields.object[fieldName] = baseClass
 	}
 	// else TO.DO
-	Object.defineProperty(parent, fieldName, {
-		set: () => {
+	descriptor.set = (val) => {
+		closureFields.object[fieldName] = val;
 
+		if (utils.isFunction(value)) {
+			closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
 		}
-	})
+		closureFields.nudgeWatcher();
+	}
+	descriptor.get = () => {
+		return closureFields.object[fieldName];
+	}
+	Object.defineProperty(parent, fieldName, descriptor)
 }
 
+function setApplyTrap(fn, context, closureFields) {
+	// equivalent of `apply` trap
+	let boundFn = fn.bind(context);
+	return (...args) => {
+		if (closureFields.blockDespatch) return boundFn(...args);
+		closureFields.blockDespatch = true;
+		let result = boundFn(...args);
+		closureFields.blockDespatch = false;
+		if (closureFields.hasPendingDespatch)
+			closureFields.nudgeWatcher();
+		return result;
+	}
+}
+function isWatchable(object) {
+	return object instanceof Watchable;
+}
 function generateReactiveStub(closureFields) {
 	closureFields.blockDespatch = false;
 
 	let reactiveObj = Object.create(Watchable.prototype);
 
 	Object.defineProperty(reactiveObj, '_attachListener', {
-		value: function _attachListener(listener) {
-			if (utils.isFunction(listener))
+		value: function _attachListener(listener, optionalListOfFieldsToListen) {
+			// `optionalListOfFieldsToListen` if given, call listener only if a field in list is updated. TO.DO
+			if (utils.isFunction(listener)){
 				closureFields.listeners.add(listener);
+				return closureFields.object;
+			}
 		}
 	})
 
@@ -124,3 +169,8 @@ function generateReactiveStub(closureFields) {
 
 	return reactiveObj;
 }
+
+
+try{
+	window.Rectangle.watchable = Watchable
+}catch(e){ module.exports = Watchable}
