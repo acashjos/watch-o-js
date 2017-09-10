@@ -1,13 +1,9 @@
 let utils = require('./utils')
 
-// CHILD-UPDATE-HANDLER  is the placeholder for a closure-global function 
-// which receives a nudge whenever a child watchable has changed.
-// This calls despatch thus forwarding the nudge to all parents holding a reference to this.
-
 
 function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// optionalDefaultListener will be added as the first listener - TO.DO
-	if(isWatchable(object)) {
+	if (isWatchable(object)) {
 		//if optionalDefaultListener, optionalListOfFieldsToListen are given,
 		// attach them on the watchable TO.DO
 		return object;
@@ -20,6 +16,7 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 	let listeners = new Set(); // parents
 	let lastKnownKeys = new Set(); // properties
 	let watchableChildren = new Map();
+	let isActive = true;
 
 	let nudgeWatcher = function nudgeWatcher() {
 		if (blockDespatch) {
@@ -28,24 +25,42 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		}
 		adaptStructChanges(reactiveObj, closureFields);
 		let summary = []; // list of keys changed TO.DO
-		listeners.forEach( listener => listener(summary))
+		listeners.forEach(listener => listener(summary))
+	}
+
+	let onNotify = function onNotify(summary) {
+		// do something when a nudge is received from a child watchable
+		nudgeWatcher();
+	}
+
+
+	let activateIfDead = function activateIfDead() {
+		if(isActive) return;
+		watchableChildren.forEach((watchable, key) => {
+			watchable._attachListener(onNotify)
+		})
+		isActive = true;
 	}
 
 	closureFields = {
 		object,
 		set blockDespatch(val) { blockDespatch = val },
 		get blockDespatch() { return blockDespatch; },
+		set isActive(val) { isActive = val; },
+		get isActive() { return isActive; },
 		get hasPendingDespatch() { return hasPendingDespatch; },
 		listeners,
 		lastKnownKeys,
 		watchableChildren,
 		nudgeWatcher,
+		onNotify,
+		activateIfDead,
 	}
 	reactiveObj = generateReactiveStub(closureFields)
 
 	for (var key in object) {
 		// if(object.hasOwnProperty(key)){
-		animateField(reactiveObj, key, object[key],closureFields)
+		animateField(reactiveObj, key, object[key], closureFields)
 		lastKnownKeys.add(key);
 		// }
 	}
@@ -69,7 +84,7 @@ function adaptStructChanges(currentObj, closureFields) {
 		} else {
 			lastKnownKeys.delete(key);
 			if (watchableChildren.has(key)) {
-				watchableChildren.get(key)._detachListener(CHILD - UPDATE - HANDLER);
+				watchableChildren.get(key)._detachListener(closureFields.onNotify);
 				watchableChildren.delete(key)
 			}
 		}
@@ -93,15 +108,15 @@ function animateField(parent, fieldName, value, closureFields) {
 	if (utils.isFunction(value)) {
 		closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
 	}
-	else if( typeof value == "object") {
-ithokke work cheyandonnu nokkanam............
+	else if (typeof value == "object") {
 		value = Watchable(value); // Watchable will return same object if the baseobject is already a watchable
-		let baseClass = value._attachListener(CHILD - UPDATE - HANDLER)
-		closureFields.watchableChildren.add(fieldName,value);
-		closureFields.object[fieldName] = baseClass
+		value._attachListener(closureFields.onNotify)
+		closureFields.watchableChildren.set(fieldName, value);
+		closureFields.object[fieldName] = value
 	}
 	// else TO.DO
 	descriptor.set = (val) => {
+		closureFields.activateIfDead();
 		closureFields.object[fieldName] = val;
 
 		if (utils.isFunction(value)) {
@@ -110,6 +125,7 @@ ithokke work cheyandonnu nokkanam............
 		closureFields.nudgeWatcher();
 	}
 	descriptor.get = () => {
+		closureFields.activateIfDead();		
 		return closureFields.object[fieldName];
 	}
 	Object.defineProperty(parent, fieldName, descriptor)
@@ -139,13 +155,19 @@ function generateReactiveStub(closureFields) {
 	Object.defineProperty(reactiveObj, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
 			// `optionalListOfFieldsToListen` if given, call listener only if a field in list is updated. TO.DO
-			if (utils.isFunction(listener)){
+			if (utils.isFunction(listener)) {
 				closureFields.listeners.add(listener);
 				return closureFields.object;
 			}
 		}
 	})
 
+
+	Object.defineProperty(reactiveObj, '_nudge', {
+		value: function _nudge() {
+			closureFields.nudgeWatcher();
+		}
+	})
 
 	Object.defineProperty(reactiveObj, '_detachListener', {
 		value: function _detachListener(listener) {
@@ -157,13 +179,14 @@ function generateReactiveStub(closureFields) {
 
 	Object.defineProperty(reactiveObj, '_destroy', {
 		value: function _destroy(listener) {
-			// loop through all children Watchables and call detach on them.
-			// This is crusial to avoid trapping references to dead parents.
-			// DO NOT DESTROY if there are listeners attached to this object, EXCEPT optionalDefaultListener
-			// Re-attach if any new operation happens on this Object or a new listener attaches.
-			// This should be a temporary unlinked state.
+
+			// This is a soft unlinked state. any get or set operation will re-activate this object
 			// ENSURE THAT ALL REFERENCES (outside of Rectangle) CALL THIS BEFORE CLEARING THEIR REFERENCES
 
+			closureFields.watchableChildren.forEach((watchable, key) => {
+				watchable._detachListener(closureFields.onNotify);
+			})
+			closureFields.isActive = false;
 		}
 	})
 
@@ -171,6 +194,6 @@ function generateReactiveStub(closureFields) {
 }
 
 
-try{
+try {
 	window.Rectangle.watchable = Watchable
-}catch(e){ module.exports = Watchable}
+} catch (e) { module.exports = Watchable }
