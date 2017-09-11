@@ -33,9 +33,16 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		nudgeWatcher();
 	}
 
+	let destroy = function destroy() {
+		watchableChildren.forEach((watchable, key) => {
+			watchable._detachListener(onNotify);
+		})
+		isActive = false;
+	}
+
 
 	let activateIfDead = function activateIfDead() {
-		if(isActive) return;
+		if(isActive || listeners.size == 0) return;
 		watchableChildren.forEach((watchable, key) => {
 			watchable._attachListener(onNotify)
 		})
@@ -46,7 +53,7 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		object,
 		set blockDespatch(val) { blockDespatch = val },
 		get blockDespatch() { return blockDespatch; },
-		set isActive(val) { isActive = val; },
+		// set isActive(val) { isActive = val; },
 		get isActive() { return isActive; },
 		get hasPendingDespatch() { return hasPendingDespatch; },
 		listeners,
@@ -55,6 +62,7 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		nudgeWatcher,
 		onNotify,
 		activateIfDead,
+		destroy,
 	}
 	reactiveObj = generateReactiveStub(closureFields)
 
@@ -173,22 +181,15 @@ function generateReactiveStub(closureFields) {
 		value: function _detachListener(listener) {
 			if (utils.isFunction(listener))
 				closureFields.listeners.delete(listener);
+			if(closureFields.listeners.size == 0)
+				closureFields.destroy();
 		}
 	})
 
 
-	Object.defineProperty(reactiveObj, '_destroy', {
-		value: function _destroy(listener) {
-
-			// This is a soft unlinked state. any get or set operation will re-activate this object
-			// ENSURE THAT ALL REFERENCES (outside of Rectangle) CALL THIS BEFORE CLEARING THEIR REFERENCES
-
-			closureFields.watchableChildren.forEach((watchable, key) => {
-				watchable._detachListener(closureFields.onNotify);
-			})
-			closureFields.isActive = false;
-		}
-	})
+	// Object.defineProperty(reactiveObj, '_destroy', {
+	// 	value: closureFields.destroy
+	// })
 
 	return reactiveObj;
 }
