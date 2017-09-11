@@ -1,6 +1,8 @@
 let utils = require('./utils')
 
 
+let objectMap = new Map();
+
 function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// optionalDefaultListener will be added as the first listener - TO.DO
 	if (isWatchable(object)) {
@@ -8,6 +10,8 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		// attach them on the watchable TO.DO
 		return object;
 	}
+	if (objectMap.has(object)) return objectMap.get(object);
+
 	let reactiveObj;
 	let closureFields;
 
@@ -42,7 +46,7 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 
 
 	let activateIfDead = function activateIfDead() {
-		if(isActive || listeners.size == 0) return;
+		if (isActive || listeners.size == 0) return;
 		watchableChildren.forEach((watchable, key) => {
 			watchable._attachListener(onNotify)
 		})
@@ -64,15 +68,39 @@ function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen
 		activateIfDead,
 		destroy,
 	}
-	reactiveObj = generateReactiveStub(closureFields)
 
-	for (var key in object) {
-		// if(object.hasOwnProperty(key)){
+	reactiveObj = generateReactiveStub(closureFields);
+	let nonEnumerableProps = new Set(Object.getOwnPropertyNames(object));
+
+	function onEach(key) {
+		let propDescriptor = Object.getOwnPropertyDescriptor(object, key)
+		if (propDescriptor.get || propDescriptor.set) {
+			if (propDescriptor.configurable) {
+				propDescriptor.get = propDescriptor.get.bind(reactiveObj);
+				propDescriptor.set = propDescriptor.set.bind(reactiveObj);
+				Object.defineProperty(object, key, propDescriptor)
+			}
+			else throw new TypeError(`Could not modify PropertyDescriptor. \n 
+				PropertyDescriptor for \`baseObject.${key}\` contains Getter and/or Setter and is non configurable too. 
+			\`WatchIt\` has to modify the getter/setter functions to make things work. `)
+		}
+		else if (!propDescriptor.writable) return;
 		animateField(reactiveObj, key, object[key], closureFields)
 		lastKnownKeys.add(key);
-		// }
 	}
 
+	for (var key in object) {
+		nonEnumerableProps.delete(key);
+		onEach(key);
+	}
+
+	nonEnumerableProps.forEach(onEach)
+	// ((key) => {
+	// 	object.ge
+	// 	onEach(key);
+	// });
+
+	objectMap.set(object, reactiveObj);
 	return reactiveObj;
 }
 
@@ -122,6 +150,7 @@ function animateField(parent, fieldName, value, closureFields) {
 		closureFields.watchableChildren.set(fieldName, value);
 		closureFields.object[fieldName] = value
 	}
+
 	// else TO.DO
 	descriptor.set = (val) => {
 		closureFields.activateIfDead();
@@ -133,7 +162,7 @@ function animateField(parent, fieldName, value, closureFields) {
 		closureFields.nudgeWatcher();
 	}
 	descriptor.get = () => {
-		closureFields.activateIfDead();		
+		closureFields.activateIfDead();
 		return closureFields.object[fieldName];
 	}
 	Object.defineProperty(parent, fieldName, descriptor)
@@ -181,7 +210,7 @@ function generateReactiveStub(closureFields) {
 		value: function _detachListener(listener) {
 			if (utils.isFunction(listener))
 				closureFields.listeners.delete(listener);
-			if(closureFields.listeners.size == 0)
+			if (closureFields.listeners.size == 0)
 				closureFields.destroy();
 		}
 	})
