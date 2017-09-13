@@ -1,5 +1,3 @@
-let utils = require('./utils')
-
 
 let objectMap = new Map();
 
@@ -84,8 +82,8 @@ function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 				PropertyDescriptor for \`baseObject.${key}\` contains Getter and/or Setter and is non configurable too. 
 			\`WatchIt\` has to modify the getter/setter functions to make things work. `)
 		}
-		else if (!propDescriptor.writable) return;
-		animateField(reactiveObj, key, object[key], closureFields)
+		
+		animateField(reactiveObj, key, object[key], closureFields, propDescriptor.writable)
 		lastKnownKeys.add(key);
 	}
 
@@ -131,7 +129,7 @@ function adaptStructChanges(currentObj, closureFields) {
 	})
 }
 
-function animateField(parent, fieldName, value, closureFields) {
+function animateField(parent, fieldName, value, closureFields, writable = true) {
 
 	let descriptor = {
 		enumerable: true,
@@ -141,7 +139,7 @@ function animateField(parent, fieldName, value, closureFields) {
 	if (Object.hasOwnProperty(parent, fieldName)) delete parent[fieldName]
 	closureFields.object[fieldName] = value;
 
-	if (utils.isFunction(value)) {
+	if (isFunction(value)) {
 		closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
 	}
 	else if (typeof value == "object") {
@@ -152,15 +150,17 @@ function animateField(parent, fieldName, value, closureFields) {
 	}
 
 	// else TO.DO
-	descriptor.set = (val) => {
-		closureFields.activateIfDead();
-		closureFields.object[fieldName] = val;
+	if (writable)
+		descriptor.set = (val) => {
+			closureFields.activateIfDead();
+			closureFields.object[fieldName] = val;
 
-		if (utils.isFunction(value)) {
-			closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
+			if (isFunction(value)) {
+				closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
+			}
+			closureFields.nudgeWatcher();
 		}
-		closureFields.nudgeWatcher();
-	}
+
 	descriptor.get = () => {
 		closureFields.activateIfDead();
 		return closureFields.object[fieldName];
@@ -184,6 +184,14 @@ function setApplyTrap(fn, context, closureFields) {
 function isWatchable(object) {
 	return object instanceof WatchO;
 }
+
+// https://stackoverflow.com/a/7356528/2605574
+function isFunction(functionToCheck) {
+	var getType = {};
+	return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
+}
+
+
 function generateReactiveStub(closureFields) {
 	closureFields.blockDespatch = false;
 
@@ -192,7 +200,7 @@ function generateReactiveStub(closureFields) {
 	Object.defineProperty(reactiveObj, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
 			// `optionalListOfFieldsToListen` if given, call listener only if a field in list is updated. TO.DO
-			if (utils.isFunction(listener)) {
+			if (isFunction(listener)) {
 				closureFields.listeners.add(listener);
 				return closureFields.object;
 			}
@@ -208,7 +216,7 @@ function generateReactiveStub(closureFields) {
 
 	Object.defineProperty(reactiveObj, '_detachListener', {
 		value: function _detachListener(listener) {
-			if (utils.isFunction(listener))
+			if (isFunction(listener))
 				closureFields.listeners.delete(listener);
 			if (closureFields.listeners.size == 0)
 				closureFields.destroy();

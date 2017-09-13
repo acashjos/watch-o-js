@@ -1,19 +1,19 @@
 var expect = require('chai').expect;
 
-let WatchO = require('../WatchO');
+let WatchO = require('../index');
 
-describe("WatchO", function () {
-	let baseclass = {
+describe("WatchO()", function () {
+	let baseObj = {
 		foo: 1,
 		invoke: fn => fn(),
 		// get drake() { return "ramoray "+this.foo}
 	}
 
-	let a = WatchO(baseclass)
+	let a = WatchO(baseObj)
 
 	it("Should return a pseudo Object that behaves same as the base class.", () => {
 		expect(a).to.be.instanceof(WatchO)
-		expect(a.foo).to.equal(baseclass.foo)
+		expect(a.foo).to.equal(baseObj.foo)
 
 		//more tests needed
 	})
@@ -26,21 +26,48 @@ describe("WatchO", function () {
 
 		expect(watchable1).equals(watchable2);
 	})
+
+	it("Should throw type error if base class " +
+		"has non-configurable propertyDescriptor " +
+		"with getters or setters",
+		() => {
+			let baseObjWithNonConfigurableSetter = {};
+			Object.defineProperty(baseObjWithNonConfigurableSetter, 'foo', {
+				get: () => 55,
+				set: () => { },
+				configurable: false,
+				enumerable: true
+			})
+
+			expect(WatchO.bind(null, baseObjWithNonConfigurableSetter)).to.throw(TypeError);
+
+			baseObjWithNonConfigurableSetter = {}
+			Object.defineProperty(baseObjWithNonConfigurableSetter, 'quaz', {
+				get: () => 55,
+				set: () => { },
+				configurable: false,
+				enumerable: false
+			})
+
+			expect(WatchO.bind(null, baseObjWithNonConfigurableSetter)).to.throw(TypeError);
+		})
 });
 
-describe("WatchO object", function () {
-	baseclass = {
+
+
+describe("WatchO {object}", function () {
+	baseObj = {
 		foo: 1,
 		quak: 2,
 		invoke: fn => fn(),
 		// get drake() { return "ramoray "+this.foo}
 	}
-	let a = WatchO(baseclass)
+	let a = WatchO(baseObj)
 
 	it("Should return the base class when an eventListener is registered.", () => {
 		let cb = () => { }
 		z = a._attachListener(cb);
-		expect(z).to.equal(baseclass);
+		expect(z).to.equal(baseObj);
 		a._detachListener(cb);
 	})
 
@@ -102,9 +129,9 @@ describe("WatchO object", function () {
 
 
 
-	it("Should handle getters/setters in baseclass", () => {
+	it("Should handle getters/setters in baseObj", () => {
 
-		baseclass = {
+		baseObj = {
 			foo: 1,
 			quak: 2,
 			invoke: fn => fn(),
@@ -112,52 +139,39 @@ describe("WatchO object", function () {
 			set drake(value) { this.foo = value; }
 		}
 
-		let a = WatchO(baseclass)
+		let a = WatchO(baseObj)
 
 		let listenerCallCounter = 0;
 		let cb = () => listenerCallCounter++;
 		a._attachListener(cb)
 
 		let temp = a.drake;
-		expect(listenerCallCounter, "modifying a property in a getter in baseclass should call listener").to.equal(1);
+		expect(listenerCallCounter, "modifying a property in a getter in baseObj should call listener").to.equal(1);
 		a.drake = 54;
-		expect(listenerCallCounter, "modifying a property in a setter in baseclass should call listener").to.equal(3);
-		expect(baseclass.foo, "modifying a property in a setter in baseclass should correctly modify properties in baseclass").to.equal(54);
+		expect(listenerCallCounter, "modifying a property in a setter in baseObj should call listener").to.equal(3);
+		expect(baseObj.foo, "modifying a property in a setter in baseObj should correctly modify properties in baseObj").to.equal(54);
 
-
-		let baseClassWithNonConfigurableSetter = {};
-		Object.defineProperty(baseClassWithNonConfigurableSetter, 'foo', {
-			get: () => 55,
-			set: () => { },
-			configurable: false,
-			enumerable: true
-		})
-
-		expect(WatchO.bind(null, baseClassWithNonConfigurableSetter),
-			"Should throw type error if base class has non-configurable propertyDescriptor with getters or setters"
-		).to.throw(TypeError);
 		a._detachListener(cb);
 	})
 
 
-	it("Should handle non-enumerable own properties in baseclass", () => {
+	it("Should handle non-enumerable own properties in baseObj", () => {
 
 
-
-		let baseClassWithNonEnumerableProps = {};
-		Object.defineProperty(baseClassWithNonEnumerableProps, 'foo', {
+		let baseObjWithNonEnumerableProps = {};
+		Object.defineProperty(baseObjWithNonEnumerableProps, 'foo', {
 			value: 10,
 			writable: true,
 			configurable: false,
 			enumerable: false
 		})
-		Object.defineProperty(baseClassWithNonEnumerableProps, 'bar', {
+		Object.defineProperty(baseObjWithNonEnumerableProps, 'bar', {
 			value: 10,
 			writable: false,
 			configurable: false,
 			enumerable: false
 		})
-		Object.defineProperty(baseClassWithNonEnumerableProps, 'baz', {
+		Object.defineProperty(baseObjWithNonEnumerableProps, 'baz', {
 			get: () => 55,
 			set: () => { },
 			configurable: true,
@@ -165,7 +179,7 @@ describe("WatchO object", function () {
 		})
 
 
-		let a = WatchO(baseClassWithNonEnumerableProps)
+		let a = WatchO(baseObjWithNonEnumerableProps)
 
 		let listenerCallCounter = 0;
 		let cb = () => listenerCallCounter++;
@@ -177,39 +191,59 @@ describe("WatchO object", function () {
 		).to.equal(1);
 
 
-		a.bar = "new";
-		expect(listenerCallCounter,
-			"Should not call listener when setting a value on non-enumerable non-editable field"
-		).to.equal(1);
-
-
 		a.baz = "new";
 		expect(listenerCallCounter,
 			"Should call listener when setting a value through setter on non-enumerable field"
 		).to.equal(2);
 
 
-		let temp=a.baz;
+		let temp = a.baz;
 		expect(listenerCallCounter,
 			"Should call listener when getting a value through getter on non-enumerable field"
 		).to.equal(2);
 
 
-		baseClassWithNonEnumerableProps = {}
-		Object.defineProperty(baseClassWithNonEnumerableProps, 'quaz', {
-			get: () => 55,
-			set: () => { },
-			configurable: false,
-			enumerable: false
-		})
-
-
-		expect(WatchO.bind(null, baseClassWithNonEnumerableProps),
-			"Should throw type error if base class has non-configurable propertyDescriptor with getters or setters"
-		).to.throw(TypeError);
 		a._detachListener(cb);
 	})
 
+
+
+	it("Should handle non-writable properties in base object", () => {
+		let baseObjWithNonWritableProps = {};
+
+		Object.defineProperty(baseObjWithNonWritableProps, 'bar', {
+			value: 10,
+			writable: false,
+			configurable: false,
+			enumerable: false
+		})
+		Object.defineProperty(baseObjWithNonWritableProps, 'car', {
+			value: 10,
+		})
+
+		let a = WatchO(baseObjWithNonWritableProps)
+
+		let listenerCallCounter = 0;
+		let cb = () => listenerCallCounter++;
+		a._attachListener(cb)
+
+		expect(a.bar, "non writable properties should be readable").to.equal(10)
+		a.bar = "new";
+		expect(listenerCallCounter,
+			"Should not call listener when setting a value on non-enumerable non-editable field"
+		).to.equal(0);
+		expect(a.bar, "non writable properties should not change value after set operation").to.equal(10)
+
+
+		expect(a.car, "non writable properties should be readable").to.equal(10)
+		a.car = "new";
+		expect(listenerCallCounter,
+			"Should not call listener when setting a value on non-enumerable non-editable field"
+		).to.equal(0);
+		expect(a.car, "non writable properties should not change value after set operation").to.equal(10)
+
+
+	})
 
 })
 
