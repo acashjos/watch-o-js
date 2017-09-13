@@ -1,5 +1,5 @@
 //let utils = require('./utils')
-//let watchable = require('./watchable')
+//let WatchO = require('./WatchO')
 
 
 

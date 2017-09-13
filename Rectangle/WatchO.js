@@ -3,7 +3,7 @@ let utils = require('./utils')
 
 let objectMap = new Map();
 
-function Watchable(object, optionalDefaultListener, optionalListOfFieldsToListen) {
+function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// optionalDefaultListener will be added as the first listener - TO.DO
 	if (isWatchable(object)) {
 		//if optionalDefaultListener, optionalListOfFieldsToListen are given,
@@ -145,7 +145,7 @@ function animateField(parent, fieldName, value, closureFields) {
 		closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
 	}
 	else if (typeof value == "object") {
-		value = Watchable(value); // Watchable will return same object if the baseobject is already a watchable
+		value = WatchO(value); // Watchable will return same object if the baseobject is already a watchable
 		value._attachListener(closureFields.onNotify)
 		closureFields.watchableChildren.set(fieldName, value);
 		closureFields.object[fieldName] = value
@@ -182,12 +182,12 @@ function setApplyTrap(fn, context, closureFields) {
 	}
 }
 function isWatchable(object) {
-	return object instanceof Watchable;
+	return object instanceof WatchO;
 }
 function generateReactiveStub(closureFields) {
 	closureFields.blockDespatch = false;
 
-	let reactiveObj = Object.create(Watchable.prototype);
+	let reactiveObj = Object.create(WatchO.prototype);
 
 	Object.defineProperty(reactiveObj, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
@@ -225,5 +225,5 @@ function generateReactiveStub(closureFields) {
 
 
 try {
-	window.Rectangle.watchable = Watchable
-} catch (e) { module.exports = Watchable }
+	window.Rectangle.WatchO = WatchO
+} catch (e) { module.exports = WatchO }

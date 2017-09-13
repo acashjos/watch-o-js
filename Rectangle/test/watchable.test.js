@@ -1,41 +1,41 @@
 var expect = require('chai').expect;
 
-let Watchable = require('../watchable');
+let WatchO = require('../WatchO');
 
-describe("Watchable", function () {
+describe("WatchO", function () {
 	let baseclass = {
 		foo: 1,
 		invoke: fn => fn(),
 		// get drake() { return "ramoray "+this.foo}
 	}
 
-	let a = Watchable(baseclass)
+	let a = WatchO(baseclass)
 
 	it("Should return a pseudo Object that behaves same as the base class.", () => {
-		expect(a).to.be.instanceof(Watchable)
+		expect(a).to.be.instanceof(WatchO)
 		expect(a.foo).to.equal(baseclass.foo)
 
 		//more tests needed
 	})
 
-	it("Should should return same watchable instance when repeatedly called with same baseObject", () => {
+	it("Should should return same WatchO instance when repeatedly called with same baseObject", () => {
 
 		let base = {};
-		let watchable1 = Watchable(base);
-		let watchable2 = Watchable(base);
+		let watchable1 = WatchO(base);
+		let watchable2 = WatchO(base);
 
 		expect(watchable1).equals(watchable2);
 	})
 });
 
-describe("Watchable object", function () {
+describe("WatchO object", function () {
 	baseclass = {
 		foo: 1,
 		quak: 2,
 		invoke: fn => fn(),
 		// get drake() { return "ramoray "+this.foo}
 	}
-	let a = Watchable(baseclass)
+	let a = WatchO(baseclass)
 
 	it("Should return the base class when an eventListener is registered.", () => {
 		let cb = () => { }
@@ -86,13 +86,13 @@ describe("Watchable object", function () {
 			listenerCallCounter,
 			"new fields inserted from member functions should trigger listener calls"
 		).to.equal(2)
-		expect(a.bar, "A child object should be converted to Watchable")
-			.to.be.instanceof(Watchable)
+		expect(a.bar, "A child object should be converted to WatchO")
+			.to.be.instanceof(WatchO)
 
 		listenerCallCounter = 0;
 		a.bar = { baz: 1, qux: 2 };
 		expect(listenerCallCounter, "listner to be called on value changes on a newly added field").to.equal(1);
-		expect(a.bar, "A child object should be converted to Watchable").to.be.instanceof(Watchable)
+		expect(a.bar, "A child object should be converted to WatchO").to.be.instanceof(WatchO)
 
 		a.bar.baz++;
 		expect(listenerCallCounter, "listner to be called on value changes on a child watchable").to.equal(2);
@@ -112,7 +112,7 @@ describe("Watchable object", function () {
 			set drake(value) { this.foo = value; }
 		}
 
-		let a = Watchable(baseclass)
+		let a = WatchO(baseclass)
 
 		let listenerCallCounter = 0;
 		let cb = () => listenerCallCounter++;
@@ -133,7 +133,7 @@ describe("Watchable object", function () {
 			enumerable: true
 		})
 
-		expect(Watchable.bind(null, baseClassWithNonConfigurableSetter),
+		expect(WatchO.bind(null, baseClassWithNonConfigurableSetter),
 			"Should throw type error if base class has non-configurable propertyDescriptor with getters or setters"
 		).to.throw(TypeError);
 		a._detachListener(cb);
@@ -165,7 +165,7 @@ describe("Watchable object", function () {
 		})
 
 
-		let a = Watchable(baseClassWithNonEnumerableProps)
+		let a = WatchO(baseClassWithNonEnumerableProps)
 
 		let listenerCallCounter = 0;
 		let cb = () => listenerCallCounter++;
@@ -204,7 +204,7 @@ describe("Watchable object", function () {
 		})
 
 
-		expect(Watchable.bind(null, baseClassWithNonEnumerableProps),
+		expect(WatchO.bind(null, baseClassWithNonEnumerableProps),
 			"Should throw type error if base class has non-configurable propertyDescriptor with getters or setters"
 		).to.throw(TypeError);
 		a._detachListener(cb);
