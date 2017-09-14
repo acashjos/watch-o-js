@@ -245,6 +245,17 @@ describe("WatchO {object}", function () {
 
 	})
 
+	it("Should not call listener if a set operation sets the existing value", ()=>{
+		let sameval = {w:22};
+		let a = WatchO({sameval})
+		
+		let listenerCallCounter = 0;
+		let cb = () => listenerCallCounter++;
+		a._attachListener(cb);
+		a.sameval = sameval;
+		expect(listenerCallCounter).to.equal(0);
+		add more checks.. everything is dirty in setter.
+	})
 })
 
 

@@ -153,11 +153,19 @@ function animateField(parent, fieldName, value, closureFields, writable = true) 
 	if (writable)
 		descriptor.set = (val) => {
 			closureFields.activateIfDead();
-			closureFields.object[fieldName] = val;
-
-			if (isFunction(value)) {
-				closureFields.object[fieldName] = setApplyTrap(value, parent, closureFields)
+			console.log("setting",closureFields.object[fieldName] , val)
+			let newVal = val;
+			if (isFunction(val)) {
+				if(val.__original && val.__original == val) return;
+				newVal = setApplyTrap(val, parent, closureFields)
 			}
+			else if (typeof val == "object") {
+				newVal = WatchO(val); // Watchable will return same object if the baseobject is already a watchable
+				newVal._attachListener(closureFields.onNotify)
+				closureFields.watchableChildren.set(fieldName, newVal);
+			}
+			if(newVal === val) return;
+			closureFields.object[fieldName] = newVal;
 			closureFields.nudgeWatcher();
 		}
 
@@ -171,6 +179,7 @@ function animateField(parent, fieldName, value, closureFields, writable = true) 
 function setApplyTrap(fn, context, closureFields) {
 	// equivalent of `apply` trap
 	let boundFn = fn.bind(context);
+	boundFn.__original = fn
 	return (...args) => {
 		if (closureFields.blockDespatch) return boundFn(...args);
 		closureFields.blockDespatch = true;
