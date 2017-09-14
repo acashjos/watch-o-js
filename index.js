@@ -1,16 +1,15 @@
 
-let objectMap = new Map();
+let watchOsMap = new Map();
 
 function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// optionalDefaultListener will be added as the first listener - TO.DO
-	if (isWatchable(object)) {
-		//if optionalDefaultListener, optionalListOfFieldsToListen are given,
-		// attach them on the watchable TO.DO
-		return object;
-	}
-	if (objectMap.has(object)) return objectMap.get(object);
+	// if (isWatchable(object)) {
+	// 	//if optionalDefaultListener, optionalListOfFieldsToListen are given,
+	// 	// attach them on the watchable TO.DO
+	// 	return object;
+	// }
+	if (watchOsMap.has(object)) return watchOsMap.get(object);
 
-	let reactiveObj;
 	let closureFields;
 
 	let blockDespatch = false;
@@ -51,8 +50,10 @@ function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 		isActive = true;
 	}
 
+	let shadowObject = {};
+
 	closureFields = {
-		object,
+		shadowObject,
 		set blockDespatch(val) { blockDespatch = val },
 		get blockDespatch() { return blockDespatch; },
 		// set isActive(val) { isActive = val; },
@@ -67,20 +68,22 @@ function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 		destroy,
 	}
 
-	reactiveObj = generateReactiveStub(closureFields);
+	reactiveObj = generateReactiveStub(object,closureFields);
 	let nonEnumerableProps = new Set(Object.getOwnPropertyNames(object));
 
 	function onEach(key) {
-		let propDescriptor = Object.getOwnPropertyDescriptor(object, key)
-		if (propDescriptor.get || propDescriptor.set) {
+
+		let propDescriptor = digUpPropDescriptor(object, key)
+		if (propDescriptor && (propDescriptor.get || propDescriptor.set)) {
 			if (propDescriptor.configurable) {
+				// Object.defineProperty(shadowObject, key, propDescriptor)
 				propDescriptor.get = propDescriptor.get.bind(reactiveObj);
 				propDescriptor.set = propDescriptor.set.bind(reactiveObj);
 				Object.defineProperty(object, key, propDescriptor)
 			}
-			else throw new TypeError(`Could not modify PropertyDescriptor. \n 
-				PropertyDescriptor for \`baseObject.${key}\` contains Getter and/or Setter and is non configurable too. 
-			\`WatchIt\` has to modify the getter/setter functions to make things work. `)
+		} 
+		else{
+			shadowObject[key]=object[key]
 		}
 		
 		animateField(reactiveObj, key, object[key], closureFields, propDescriptor.writable)
@@ -98,9 +101,11 @@ function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	// 	onEach(key);
 	// });
 
-	objectMap.set(object, reactiveObj);
+	watchOsMap.set(object, reactiveObj);
 	return reactiveObj;
 }
+
+WatchO.isWatchO = (obj) => { return watchOsMap.has(object);}
 
 function adaptStructChanges(currentObj, closureFields) {
 
@@ -179,7 +184,10 @@ function animateField(parent, fieldName, value, closureFields, writable = true) 
 function setApplyTrap(fn, context, closureFields) {
 	// equivalent of `apply` trap
 	let boundFn = fn.bind(context);
-	boundFn.__original = fn
+	Object.defineProperty(boundFn,'__original',{
+		value: fn,
+		enumerable: false
+	})
 	return (...args) => {
 		if (closureFields.blockDespatch) return boundFn(...args);
 		closureFields.blockDespatch = true;
@@ -201,10 +209,10 @@ function isFunction(functionToCheck) {
 }
 
 
-function generateReactiveStub(closureFields) {
+function generateReactiveStub(baseObj,closureFields) {
 	closureFields.blockDespatch = false;
 
-	let reactiveObj = Object.create(WatchO.prototype);
+	let reactiveObj = baseObj //Object.create(WatchO.prototype);
 
 	Object.defineProperty(reactiveObj, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
@@ -213,14 +221,16 @@ function generateReactiveStub(closureFields) {
 				closureFields.listeners.add(listener);
 				return closureFields.object;
 			}
-		}
+		},
+		enumerable: false
 	})
 
 
 	Object.defineProperty(reactiveObj, '_nudge', {
 		value: function _nudge() {
 			closureFields.nudgeWatcher();
-		}
+		},
+		enumerable: false
 	})
 
 	Object.defineProperty(reactiveObj, '_detachListener', {
@@ -229,7 +239,8 @@ function generateReactiveStub(closureFields) {
 				closureFields.listeners.delete(listener);
 			if (closureFields.listeners.size == 0)
 				closureFields.destroy();
-		}
+		},
+		enumerable: false
 	})
 
 
@@ -238,6 +249,12 @@ function generateReactiveStub(closureFields) {
 	// })
 
 	return reactiveObj;
+}
+
+function digUpPropDescriptor(obj,key) {
+	let descriptor = Object.getOwnPropertyDescriptor(obj,key);
+	if(!descriptor) return obj.__proto__;
+	return descriptor;
 }
 
 
