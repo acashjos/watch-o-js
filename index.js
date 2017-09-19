@@ -32,17 +32,21 @@ function WatchO(object, optionalDefaultListener, optionalListOfFieldsToListen) {
 	let isActive = true;
 
 	let pendingDespatch = null;
-	let nudgeWatcher = function nudgeWatcher() {
+	let nudgeWatcher = function nudgeWatcher(flag) {
+
+		if (flag == 'ifpending' && pendingDespatch === null) return;
+
+		//If already pending, return
 		if (pendingDespatch !== null) {
 			return;
 		}
-		
-		pendingDespatch = setTimeout(()=>{
+
+		pendingDespatch = setTimeout(() => {
 
 			adaptStructChanges(reactiveObj, reactiveObj, closureFields);
 			let summary = []; // list of keys changed TO.DO
 			listeners.forEach(listener => listener(summary))
-			pendingDespatch=null;
+			pendingDespatch = null;
 		}, 0)
 	}
 
@@ -126,8 +130,8 @@ function adaptStructChanges(currentState, reactiveObj, closureFields) {
 				watchableChildren.$remove(key)
 			}
 		}
-		let propDesc = Object.getOwnPropertyDescriptor(reactiveObj,key);
-		if(propDesc && !propDesc.configurable)
+		let propDesc = Object.getOwnPropertyDescriptor(reactiveObj, key);
+		if (propDesc && !propDesc.configurable)
 			throw new TypeError(`Could not modify PropertyDescriptor in currect state at object.${key}`)
 	})
 
@@ -153,12 +157,9 @@ function animateField(reactiveObj, fieldName, propDescriptor, closureFields) {
 	}
 	else if (typeof value == "object") {
 		propDescriptor.value = value = WatchO(value); // Watchable will return same object if the baseobject is already a watchable
-		// value._attachListener(closureFields.onNotify)
 		closureFields.watchableChildren.$add(fieldName, value);
-		// closureFields.object[fieldName] = value
 	}
 	Object.defineProperty(closureFields.object, fieldName, propDescriptor);
-
 
 	let watchoPropDescriptor = {
 		enumerable: true,
@@ -167,7 +168,7 @@ function animateField(reactiveObj, fieldName, propDescriptor, closureFields) {
 
 	watchoPropDescriptor.set = (val) => {
 		closureFields.activateIfDead();
-		if(!propDescriptor.writable && !propDescriptor.get && !propDescriptor.set) return;
+		if (!propDescriptor.writable && !propDescriptor.get && !propDescriptor.set) return;
 		let oldVal = closureFields.object[fieldName];
 		let newVal = val;
 		if (isFunction(val)) {
@@ -177,11 +178,9 @@ function animateField(reactiveObj, fieldName, propDescriptor, closureFields) {
 		else if (typeof val == "object") {
 			newVal = WatchO(val); // Watchable will return same object if the baseobject is already a watchable
 			if (oldVal == newVal) return;
-			// newVal._attachListener(closureFields.onNotify)
-			closureFields.watchableChildren.set(fieldName, newVal);
+			closureFields.watchableChildren.$add (fieldName, newVal);
 		}
 		if (isWatchable(oldVal)) {
-			// oldVal._detachListener(closureFields.onNotify);
 			closureFields.watchableChildren.$remove(fieldName, oldVal);
 		}
 		if (newVal === oldVal) return;
@@ -201,12 +200,8 @@ function setApplyTrap(fn, context, closureFields) {
 	let boundFn = fn.bind(context);
 
 	let wrappedFn = (...args) => {
-		// if (closureFields.blockDespatch) return boundFn(...args);
-		// closureFields.blockDespatch = true;
 		let result = boundFn(...args);
-		// closureFields.blockDespatch = false;
-		// if (closureFields.hasPendingDespatch)
-			closureFields.nudgeWatcher();
+		closureFields.nudgeWatcher("ifpending");
 		return result;
 	}
 
@@ -260,17 +255,13 @@ function generateReactiveStub(closureFields) {
 			closureFields.watchableChildren.clear();
 			closureFields.lastKnownKeys.clear();
 			Object.getOwnPropertyNames(reactiveObj).forEach(key => delete reactiveObj[key])
-			
+
 			adaptStructChanges(object, reactiveObj, closureFields);
-			if(objectMap.get(object) != reactiveObj)
+			if (objectMap.get(object) != reactiveObj)
 				throw "Warning!! calling _reshape with any object other than the base object is discouraged. However, calling _reshape wrapped in a try-catch will yield the desired result."
 		}
 	})
 
-
-	// Object.defineProperty(reactiveObj, '_destroy', {
-	// 	value: closureFields.destroy
-	// })
 	let reactiveObj = Object.create(inheritedProto);
 	return reactiveObj;
 }
