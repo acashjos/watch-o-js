@@ -69,7 +69,8 @@ describe("WatchO Listener callback", () => {
 			qabb: {
 				dab: 22
 			},
-			maq: true
+			maq: true,
+			arr: [1,2,3]
 		}
 
 		let srcDiff = {
@@ -81,7 +82,7 @@ describe("WatchO Listener callback", () => {
 
 		let obj1 = WatchO(baseObj);
 		let {diff,orig} = await asyncify(obj1);
-
+		expect(obj1.arr,'unsupported Native types should not be modified').equals(baseObj.arr);
 		Object.assign(obj1, srcDiff);
 		({diff,orig} = await asyncify(obj1));
 

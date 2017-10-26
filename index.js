@@ -1,5 +1,11 @@
 "use strict"
 
+const {
+	isUnsupportedNative,
+	getNativeType,
+	isFunction,
+} = require('./src/utils');
+
 let objectMap = new Map();
 
 function WatchO(object, config) {
@@ -17,7 +23,11 @@ function WatchO(object, config) {
 		throw new TypeError(
 			"Expected an object as first parameter, got "
 			+ (typeof object))
-
+	if(isUnsupportedNative(object)) {
+		throw new TypeError(
+			"Expected a non-native object. Native types are not supported at the moment. got "
+			+ getNativeType(object))
+	}
 	let reactiveObj;
 	let baseObject = {};
 	let closureFields;
@@ -179,7 +189,7 @@ function animateField(reactiveObj, fieldName, propDescriptor, closureFields) {
 	if (isFunction(value)) {
 		propDescriptor.value = value = setApplyTrap(value, reactiveObj, closureFields)
 	}
-	else if (typeof value == "object") {
+	else if (typeof value == "object" && !isUnsupportedNative(value)) {
 		propDescriptor.value = value = WatchO(value); // Watchable will return same object if the baseobject is already a watchable
 		closureFields.watchableChildren.$add(fieldName, value);
 	}
@@ -235,12 +245,6 @@ function setApplyTrap(fn, context, closureFields) {
 }
 function isWatchable(object) {
 	return object instanceof WatchO;
-}
-
-// https://stackoverflow.com/a/7356528/2605574
-function isFunction(functionToCheck) {
-	var getType = {};
-	return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
 }
 
 
