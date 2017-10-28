@@ -3,11 +3,11 @@ var expect = require('chai').expect;
 
 let WatchO = require('../index');
 
-let asyncify = function(watchO) {
+let listenerCallback = function (watchO) {
 	let resolver;
-	return new Promise((res,rej) => {
-		resolver = (diff,orig) => {
-			res({diff,orig});
+	return new Promise((res, rej) => {
+		resolver = (diff, orig) => {
+			res({ diff, orig });
 			watchO._detachListener(resolver);
 		}
 		watchO._attachListener(resolver)
@@ -19,7 +19,7 @@ describe("WatchO Objects", () => {
 
 		watcho.foo++;
 
-		let {diff,orig} = await asyncify(watcho);
+		let { diff, orig } = await listenerCallback(watcho);
 	})
 
 	it("should be identical to base object", async () => {
@@ -42,7 +42,7 @@ describe("WatchO Objects", () => {
 		delete baseObj.baz;
 		obj1._nudge()
 
-		let {diff,orig} = await asyncify(obj1);
+		let { diff, orig } = await listenerCallback(obj1);
 		obj1._detachListener(arguments.callee);
 		expect(obj1, "watcho object is not tracking the base object used for creation").not.deep.equals(baseObj);
 
@@ -70,7 +70,7 @@ describe("WatchO Listener callback", () => {
 				dab: 22
 			},
 			maq: true,
-			arr: [1,2,3]
+			arr: [1, 2, 3]
 		}
 
 		let srcDiff = {
@@ -81,10 +81,10 @@ describe("WatchO Listener callback", () => {
 		}
 
 		let obj1 = WatchO(baseObj);
-		let {diff,orig} = await asyncify(obj1);
-		expect(obj1.arr,'unsupported Native types should not be modified').equals(baseObj.arr);
+		let { diff, orig } = await listenerCallback(obj1);
+		expect(obj1.arr, 'unsupported Native types should not be modified').equals(baseObj.arr);
 		Object.assign(obj1, srcDiff);
-		({diff,orig} = await asyncify(obj1));
+		({ diff, orig } = await listenerCallback(obj1));
 
 		obj1._detachListener(arguments.callee);
 		expect(diff, "callback diff should match the applied change").deep.equals(srcDiff);
@@ -94,9 +94,109 @@ describe("WatchO Listener callback", () => {
 })
 
 
+describe("Base objects with custom constructors", () => {
 
+
+	it("should still be instance of its constructor", async () => {
+		class TestClass {
+			constructor() {
+
+				this.foo = "initial val";
+				this.bar = "i am bar";
+			}
+			testFn() {
+				//does Nothing
+			}
+			testGet(key) {
+				return this[key]
+			}
+			testSet(key, val) {
+				this[key] = val;
+			}
+		};
+
+		let baseObj = new TestClass();
+
+		let obj1 = WatchO(baseObj);
+		let { diff, orig } = await listenerCallback(obj1);
+		expect(obj1, 'pass instanceof check').instanceof(TestClass);
+
+		obj1.foo = 'changed value';
+		({ diff, orig } = await listenerCallback(obj1));
+		expect(obj1.foo).equals('changed value');
+		expect(obj1.testGet('foo'), "method calls").equals('changed value');
+
+		obj1.testSet('bar', 'final change');
+		({ diff, orig } = await listenerCallback(obj1));
+		expect(obj1.bar, "modify values from member functions").equals('final change');
+	})
+
+
+
+	it("should work with inherited methods", async () => {
+		
+				class BaseClass {
+					constructor() {
+		
+						this.foo = 22;
+						this.bar = "i am bar";
+					}
+					testFn() {
+						//does Nothing
+					}
+					testGet(key) {
+						return this[key]
+					}
+					testSet(key, val) {
+						this[key] = val;
+					}
+				};
+		
+				class TestClass extends BaseClass {
+					constructor() {
+						super();
+						this.baz = "own value"
+					}
+					testSet2(key, val) {
+						this.testSet(key, val);
+					}
+				}
+		
+				let baseObj = new TestClass();
+		
+				let obj1 = WatchO(baseObj);
+				let { diff, orig } = await listenerCallback(obj1);
+				expect(obj1, 'pass instanceof check').instanceof(TestClass);
+		
+				obj1.baz = 'changed value';
+				({ diff, orig } = await listenerCallback(obj1));
+				expect(obj1.baz).equals('changed value');
+				expect(obj1.testGet('baz'), "method calls").equals('changed value');
+
+				obj1.foo = 'changed value';
+				({ diff, orig } = await listenerCallback(obj1));
+				expect(obj1.foo,'listener should be called when inherited value is changed').equals('changed value');
+				expect(obj1.testGet('foo'), "method calls").equals('changed value');
+		
+				obj1.testSet('bar', 'final change');
+				({ diff, orig } = await listenerCallback(obj1));
+				expect(obj1.bar, "modify values from inheritted member functions").equals('final change');
+		
+				obj1.testSet2('bar', 'final change2');
+				({ diff, orig } = await listenerCallback(obj1));
+				expect(obj1.bar, "modify values from member functions through inheritted function ").equals('final change2');
+		
+		})
+
+	})
+
+
+	describe("Base objects with prototypal inheritance", () => {
+		it("should work with prototypal inheritance",(d)=>{})
+	})
 
 describe("WatchO Arrays", () => {
+	it("should work with prototypal inheritance")
 	it("should pass Array.isArray", () => {
 		let arr = []
 

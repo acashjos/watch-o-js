@@ -127,7 +127,7 @@ function WatchO(object, config) {
 		destroy,
 	}
 
-	reactiveObj = generateReactiveStub(closureFields);
+	reactiveObj = generateReactiveStub(object.__proto__, closureFields);
 
 	objectMap.set(object, reactiveObj);
 	adaptStructChanges(object, reactiveObj, closureFields);
@@ -244,14 +244,15 @@ function setApplyTrap(fn, context, closureFields) {
 	return wrappedFn
 }
 function isWatchable(object) {
-	return object instanceof WatchO;
+	return object.constructor === WatchO;
 }
 
 
-function generateReactiveStub(closureFields) {
+function generateReactiveStub(prototype,closureFields) {
 	closureFields.blockDespatch = false;
 
-	let inheritedProto = Object.create(WatchO.prototype);
+	let inheritedProto = Object.create(prototype);
+	Object.defineProperty(inheritedProto, 'constructor', { value: WatchO});
 
 	Object.defineProperty(inheritedProto, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
