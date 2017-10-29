@@ -29,11 +29,8 @@ function WatchO(object, config) {
 			+ getNativeType(object))
 	}
 	let reactiveObj;
-	let baseObject = {};
 	let closureFields;
 
-	let blockDespatch = false;
-	let hasPendingDespatch = false;
 	let listeners = new Set(); // parents
 	let lastKnownKeys = new Set(); // properties
 	let watchableChildren = new Map();
@@ -112,12 +109,9 @@ function WatchO(object, config) {
 	}
 
 	closureFields = {
-		object: baseObject,
-		set blockDespatch(val) { blockDespatch = val },
-		get blockDespatch() { return blockDespatch; },
-		// set isActive(val) { isActive = val; },
+		
 		get isActive() { return isActive; },
-		get hasPendingDespatch() { return hasPendingDespatch; },
+		object,
 		listeners,
 		lastKnownKeys,
 		watchableChildren,
@@ -127,7 +121,7 @@ function WatchO(object, config) {
 		destroy,
 	}
 
-	reactiveObj = generateReactiveStub(closureFields);
+	reactiveObj = generateReactiveStub(object, closureFields);
 
 	objectMap.set(object, reactiveObj);
 	adaptStructChanges(object, reactiveObj, closureFields);
@@ -141,9 +135,10 @@ function adaptStructChanges(currentState, reactiveObj, closureFields) {
 	let { lastKnownKeys, watchableChildren, object: baseObject } = closureFields;
 	let currentKeys = new Set(Object.getOwnPropertyNames(currentState));
 
-	for (let key in currentState) {
+	// to make all enumerable objects in prototype chain trackable
+	/* for (let key in currentState) {
 		currentKeys.add(key);
-	}
+	} */
 
 	// first detatch removed items
 	lastKnownKeys.forEach(key => {
@@ -244,15 +239,15 @@ function setApplyTrap(fn, context, closureFields) {
 	return wrappedFn
 }
 function isWatchable(object) {
-	return object instanceof WatchO;
+	return object && object.WatchO == WatchO;
 }
 
 
-function generateReactiveStub(closureFields) {
-	closureFields.blockDespatch = false;
+function generateReactiveStub(prototype,closureFields) {
 
-	let inheritedProto = Object.create(WatchO.prototype);
-
+	let inheritedProto = Object.create(prototype);
+	Object.defineProperty(inheritedProto, 'WatchO', { value: WatchO})
+		
 	Object.defineProperty(inheritedProto, '_attachListener', {
 		value: function _attachListener(listener, optionalListOfFieldsToListen) {
 			// `optionalListOfFieldsToListen` if given, call listener only if a field in list is updated. TO.DO

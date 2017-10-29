@@ -16,7 +16,6 @@ try { unsupportedNativeConstructors.push(DataView) } catch (e) { };
 try { unsupportedNativeConstructors.push(Promise) } catch (e) { };
 try { unsupportedNativeConstructors.push(Generator) } catch (e) { };
 try { unsupportedNativeConstructors.push(GeneratorFunction) } catch (e) { };
-try { unsupportedNativeConstructors.push(Proxy) } catch (e) { };
 try { unsupportedNativeConstructors.push(RegExp) } catch (e) { };
 
 try {

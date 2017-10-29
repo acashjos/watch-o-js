@@ -7,12 +7,17 @@
     "test": "test"
   },
   "scripts": {
-    "test": "mocha ./test"
+    "test": "mocha ./test",
+    "test.html": "xdg-open test/index.html & watchify test/watchable.test.js -v -o test/watchable.test.html.js"
   },
   "author": "Akash Kurian Jose",
   "license": "MIT",
   "dependencies": {
     "chai": "^4.1.2",
     "mocha": "^3.5.0"
+  },
+  "devDependencies": {
+    "browserify": "^14.5.0",
+    "watchify": "^3.9.0"
   }
 }
