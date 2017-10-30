@@ -1,7 +1,7 @@
 
 var expect = require('chai').expect;
 
-let WatchO = require('../index');
+let WatchO = require('../../index');
 
 let listenerCallback = function (watchO) {
 	let resolver;
@@ -44,21 +44,14 @@ describe("WatchO Objects", () => {
 
 		let { diff, orig } = await listenerCallback(obj1);
 		obj1._detachListener(arguments.callee);
+
 		expect(obj1, "watcho object is not tracking the base object used for creation").not.deep.equals(baseObj);
+		expect(obj1.newField, "... but changes to base object are still accessable").equals(baseObj.newField);
 
 
 		let obj2 = WatchO(baseObj);
 		expect(obj2, "WatchO called on same object always return same watcho Object").equals(obj1)
-		let unModified = {
-			foo: 27,
-			bar: "string",
-			baz: true,
-			qabb: {
-				dab: 22,
-				melon: "pie"
-			}
-		}
-		expect(obj2, "WatchO called on same object return same watcho but changes on baseobject are not present in watcho the returned object").deep.equals(unModified);
+
 	})
 })
 
